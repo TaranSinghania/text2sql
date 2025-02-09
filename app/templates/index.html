@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Text-to-SQL Chat</title>
+  <style>
+    /* Minimalistic and modern styling */
+    body {
+      background-color: #f7f7f7;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background-color: #2c3e50;
+      color: #ecf0f1;
+      padding: 20px;
+      text-align: center;
+    }
+    #settings {
+      margin: 10px 20px;
+      padding: 10px;
+      background-color: #ffffff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    #conversation {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background-color: #ffffff;
+      margin: 20px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .user {
+      background-color: #d9edf7;
+      color: #31708f;
+      text-align: right;
+    }
+    .system {
+      background-color: #dff0d8;
+      color: #3c763d;
+      text-align: left;
+    }
+    .error {
+      background-color: #f2dede;
+      color: #a94442;
+      text-align: left;
+    }
+    table.resultTable {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    table.resultTable th, table.resultTable td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    table.resultTable th {
+      background-color: #f2f2f2;
+    }
+    #inputContainer {
+      display: flex;
+      padding: 20px;
+      background-color: #ecf0f1;
+    }
+    #inputContainer input[type="text"] {
+      flex: 1;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #inputContainer button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      font-size: 1em;
+      border: none;
+      background-color: #3498db;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #inputContainer button:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Text-to-SQL Chat</h1>
+  </header>
+  <!-- Settings section for simulation/read-only mode -->
+  <div id="settings">
+    <label>
+      <input type="checkbox" id="executeSqlCheckbox" checked>
+      Execute SQL
+    </label>
+    <label>
+      <input type="checkbox" id="readOnlyCheckbox" checked>
+      Read Only
+    </label>
+  </div>
+  <div id="conversation"></div>
+  <div id="inputContainer">
+    <input type="text" id="messageInput" placeholder="Type your query or feedback here...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    // Function to generate a random user ID and persist it in localStorage.
+    function generateRandomUserId() {
+      return "user" + Math.floor(Math.random() * 1000000);
+    }
+    function getUserId() {
+      let uid = localStorage.getItem("userId");
+      if (!uid) {
+        uid = generateRandomUserId();
+        localStorage.setItem("userId", uid);
+      }
+      return uid;
+    }
+    const userId = getUserId();
+    console.log("User ID:", userId);
+
+    // Retrieve conversation history from localStorage or initialize an empty array.
+    let conversationHistory = [];
+    const storedHistory = localStorage.getItem("conversationHistory");
+    if (storedHistory) {
+      try {
+        conversationHistory = JSON.parse(storedHistory);
+        conversationHistory.forEach(msg => addMessage(msg.sender, msg.text));
+      } catch (e) {
+        console.error("Error parsing conversation history:", e);
+      }
+    }
+
+    // Check if conversation has started to disable mode toggles.
+    function updateModeToggles() {
+      if (conversationHistory.length > 0) {
+        document.getElementById("executeSqlCheckbox").disabled = true;
+        document.getElementById("readOnlyCheckbox").disabled = true;
+      }
+    }
+    updateModeToggles();
+
+    async function sendMessage() {
+      const inputField = document.getElementById("messageInput");
+      const message = inputField.value.trim();
+      if (!message) return;
+      
+      // Add user's message.
+      inputField.value = "";
+      
+      // Determine which endpoint to use: if no conversation, first query; otherwise, refinement.
+      const endpoint = conversationHistory.length === 0 ? "/query" : "/refine";
+      addMessage("User", message);
+      // Get mode settings from the checkboxes.
+      const execute_sql = document.getElementById("executeSqlCheckbox").checked;
+      const read_only = document.getElementById("readOnlyCheckbox").checked;
+      
+      const payload = {
+        user_id: userId,
+        query: message,
+        feedback: message,
+        execute_sql: execute_sql,
+        read_only: read_only
+      };
+
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.error) {
+          addMessage("Error", data.error);
+        } else {
+          addMessage("System", data.sql);
+          // Display result table.
+          if (data.result) {
+            displayResult(data.result);
+          }
+        }
+      } catch (error) {
+        addMessage("Error", error.toString());
+      }
+      
+      // After the first message, disable the mode toggles.
+      updateModeToggles();
+    }
+
+    function addMessage(sender, text) {
+      const conversationDiv = document.getElementById("conversation");
+      const messageDiv = document.createElement("div");
+      messageDiv.className = "message";
+      if (sender === "User") {
+        messageDiv.classList.add("user");
+      } else if (sender === "Error") {
+        messageDiv.classList.add("error");
+      } else {
+        messageDiv.classList.add("system");
+      }
+      messageDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+      conversationDiv.appendChild(messageDiv);
+      conversationDiv.scrollTop = conversationDiv.scrollHeight;
+      
+      // Update conversation history and persist in localStorage.
+      conversationHistory.push({ sender, text });
+      localStorage.setItem("conversationHistory", JSON.stringify(conversationHistory));
+    }
+
+    function displayResult(result) {
+      // Expected result format: { columns: [...], rows: [...] }
+      const conversationDiv = document.getElementById("conversation");
+      const table = document.createElement("table");
+      table.className = "resultTable";
+
+      // Create header row.
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      if (result && result.columns && result.columns.length > 0) {
+        result.columns.forEach(col => {
+          const th = document.createElement("th");
+          th.innerText = col;
+          headerRow.appendChild(th);
+        });
+      } else {
+        const th = document.createElement("th");
+        th.innerText = "No Columns";
+        headerRow.appendChild(th);
+      }
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Create body rows.
+      const tbody = document.createElement("tbody");
+      if (result && result.rows && result.rows.length > 0) {
+        result.rows.forEach(row => {
+          const tr = document.createElement("tr");
+          row.forEach(cell => {
+            const td = document.createElement("td");
+            td.innerText = cell;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+      } else {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.innerText = "No Results";
+        td.colSpan = (result && result.columns && result.columns.length > 0) ? result.columns.length : 1;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      conversationDiv.appendChild(table);
+      conversationDiv.scrollTop = conversationDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>

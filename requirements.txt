@@ -1,0 +1,10 @@
+Flask
+requests
+gunicorn
+protobuf>=3.20,<3.21
+tiktoken
+blobfile
+google-generativeai
+redis
+pytest
+pytest-flask
