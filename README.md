@@ -5,7 +5,7 @@ A production-inspired text-to-SQL conversion application that leverages the Gemi
 ## Improvements and WIP
 
 - Completely integrate redis
-- Dockerize the application
+- Dockerize the application (WIP)
 - Use locally hosted models instead of Gemini
 - Clean up and dynamic DB initialization (migrations, etc.)
 ## Requirements
