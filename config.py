@@ -6,7 +6,7 @@ class Config:
     
     # Gemini API settings
     USE_GEMINI = True
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAyuYacq4-9J6j4KfGI-M3ySZN63W3YoUU")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "<GEMINI API KEY>")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
     # Flag: if False, only conversion is performed; generated SQL is not executed.
@@ -53,7 +53,7 @@ class TestConfig(Config):
     
     # Gemini API settings
     USE_GEMINI = True
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAyuYacq4-9J6j4KfGI-M3ySZN63W3YoUU")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "<GEMINI API KEY>")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
     
     # Flag: if False, only conversion is performed; generated SQL is not executed.
